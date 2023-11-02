@@ -12,11 +12,12 @@ async function run() {
     const uploadUrl = core.getInput('upload_url', { required: true });
     const assetPath = core.getInput('asset_path', { required: true });
     // Check if asset_name is provided. If not, use the filename from assetPath
-    let assetName = core.getInput('asset_name',{ required: true });
+    core.setFailed(`Failed to get size of file asset_path ${assetPath}`);
+    // let assetName = core.getInput('asset_name',{ required: true });
     // if (!assetName) {
     //   assetName = path.basename(assetPath);
     // }
-    core.setFailed(`Failed to get size of file ${assetName}`);
+    // core.setFailed(`Failed to get size of file ${assetName}`);
     const assetContentType = core.getInput('asset_content_type', { required: true });
      // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
 
