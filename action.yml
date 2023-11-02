@@ -1,5 +1,5 @@
-name: 'Upload a Release Asset1'
-description: 'Upload a release asset to an existing release in your repository1'
+name: 'Upload a Release Asset last'
+description: 'Upload a release asset to an existing release in your repository last'
 author: 'GitHub'
 inputs:
   upload_url:
