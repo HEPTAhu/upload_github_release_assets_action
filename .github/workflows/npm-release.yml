@@ -1,7 +1,7 @@
-name: NPM Release
+name: NPM Release Test
 
 env:
-  ProductName: upload_github_release_assets_action
+  ProductName: upload_github_release_assets_action_test
 
 on:
   push:
