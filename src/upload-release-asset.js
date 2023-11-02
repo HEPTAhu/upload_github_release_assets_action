@@ -1,7 +1,7 @@
 const core = require('@actions/core');
 const { getOctokit } = require('@actions/github');
 const fs = require('fs');
-const path = require('path'); // <-- Add this for path manipulations
+//const path = require('path'); // <-- Add this for path manipulations
 
 async function run() {
   try {
@@ -12,24 +12,26 @@ async function run() {
     const uploadUrl = core.getInput('upload_url', { required: true });
     const assetPath = core.getInput('asset_path', { required: true });
     // Check if asset_name is provided. If not, use the filename from assetPath
-    let assetName = core.getInput('asset_name');
-    if (!assetName) {
-      assetName = path.basename(assetPath);
-    }
-
+    let assetName = core.getInput('asset_name',{ required: true });
+    // if (!assetName) {
+    //   assetName = path.basename(assetPath);
+    // }
+    core.setFailed(`Failed to get size of file ${assetName}`);
     const assetContentType = core.getInput('asset_content_type', { required: true });
+     // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
 
     // Determine content-length for header to upload asset
     // const contentLength = filePath => fs.statSync(filePath).size;
     const contentLength = filePath => {
-      try {
+      core.setFailed("filePath:",filePath)
+      try { 
         return fs.statSync(filePath).size;
       } catch (error) {
         core.setFailed(`Failed to get size of file ${filePath}: ${error.message}`);
         return 0;
       }
     };
-    // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
+
     const headers = { 'content-type': assetContentType, 'content-length': contentLength(assetPath) };
 
     // Upload a release asset
