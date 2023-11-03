@@ -1,6 +1,6 @@
 # https://help.github.com/en/articles/metadata-syntax-for-github-actions
-name: "Release"
-description: "Github Action for creating Github Releases"
+name: "Release build"
+description: "Github Action for creating Github Releases build"
 author: "softprops"
 inputs:
   body:
