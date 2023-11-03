@@ -1,7 +1,7 @@
 # https://help.github.com/en/articles/metadata-syntax-for-github-actions
-name: "GH Release"
-description: "Github Action for creating Github Releases"
-author: "softprops"
+name: "upload Release"
+description: "Github Action for creating Github Releases upload"
+author: "kzh"
 inputs:
   body:
     description: "Note-worthy description of changes in release"
