@@ -1,5 +1,4 @@
 import {
-  paths,
   parseConfig,
   isTag,
   uploadUrl,

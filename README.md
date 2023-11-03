@@ -2,24 +2,16 @@
   📦 :octocat:
 </div>
 <h1 align="center">
-  action gh-release
+  upload_github_release_assets_action
 </h1>
+
 
 <p align="center">
    A GitHub Action for creating GitHub Releases on Linux, Windows, and macOS virtual environments
 </p>
+Fork By [action gh-release](https://github.com/softprops/action-gh-release.git)
 
-<div align="center">
-  <img src="demo.png"/>
-</div>
-
-<div align="center">
-  <a href="https://github.com/softprops/action-gh-release/actions">
-		<img src="https://github.com/softprops/action-gh-release/workflows/Main/badge.svg"/>
-	</a>
-</div>
-
-<br />
+Fork By [[upload-artifact]](https://github.com/actions/upload-artifact)
 
 ## 🤸 Usage
 
@@ -64,7 +56,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: HEPTAhu/upload_github_release_assets_action@v0.0.5
 ```
 
 ### ⬆️ Uploading release assets
@@ -76,7 +68,7 @@ A common case for GitHub releases is to upload your binary after its been valida
 Use the `with.files` input to declare a newline-delimited list of glob expressions matching the files
 you wish to upload to GitHub releases. If you'd like you can just list the files by name directly.
 
-Below is an example of uploading a single asset named `Release.txt`
+Below is an example of uploading a single asset named `*.zip`
 
 ```yaml
 name: Main
@@ -93,145 +85,282 @@ jobs:
         run: echo ${{ github.sha }} > Release.txt
       - name: Test
         run: cat Release.txt
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - name: Release build 
+        uses: HEPTAhu/upload_github_release_assets_action@v0.0.5
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Release.txt
+          filename: release
+          path: ./build/release/*.zip
 ```
 
-Below is an example of uploading more than one asset with a GitHub release
+# Usage
+
+See [action.yml](action.yml)
+
+### Upload an Individual File
 
 ```yaml
-name: Main
+steps:
+- uses: actions/checkout@v3
 
-on: push
+- run: mkdir -p path/to/artifact
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+- run: echo hello > path/to/artifact/world.txt
+
+- uses: actions/upload-artifact@v3
+  with:
+    filename: my-artifact
+    path: path/to/artifact/world.txt
+```
+
+### Upload an Entire Directory
+
+```yaml
+- uses: actions/upload-artifact@v3
+  with:
+    filename: my-artifact
+    path: path/to/artifact/ # or path/to/artifact
+```
+
+### Upload using a Wildcard Pattern
+
+```yaml
+- uses: actions/upload-artifact@v3
+  with:
+    filename: my-artifact
+    path: path/**/[abc]rtifac?/*
+```
+
+### Upload using Multiple Paths and Exclusions
+
+```yaml
+- uses: actions/upload-artifact@v3
+  with:
+    filename: my-artifact
+    path: |
+      path/output/bin/
+      path/output/test-results
+      !path/**/*.tmp
+```
+
+For supported wildcards along with behavior and documentation, see [@actions/glob](https://github.com/actions/toolkit/tree/main/packages/glob) which is used internally to search for files.
+
+If a wildcard pattern is used, the path hierarchy will be preserved after the first wildcard pattern:
+
+```
+path/to/*/directory/foo?.txt =>
+    ∟ path/to/some/directory/foo1.txt
+    ∟ path/to/some/directory/foo2.txt
+    ∟ path/to/other/directory/foo1.txt
+
+would be flattened and uploaded as =>
+    ∟ some/directory/foo1.txt
+    ∟ some/directory/foo2.txt
+    ∟ other/directory/foo1.txt
+```
+
+If multiple paths are provided as input, the least common ancestor of all the search paths will be used as the root directory of the artifact. Exclude paths do not affect the directory structure.
+
+Relative and absolute file paths are both allowed. Relative paths are rooted against the current working directory. Paths that begin with a wildcard character should be quoted to avoid being interpreted as YAML aliases.
+
+The [@actions/artifact](https://github.com/actions/toolkit/tree/main/packages/artifact) package is used internally to handle most of the logic around uploading an artifact. There is extra documentation around upload limitations and behavior in the toolkit repo that is worth checking out.
+
+### Customization if no files are found
+
+If a path (or paths), result in no files being found for the artifact, the action will succeed but print out a warning. In certain scenarios it may be desirable to fail the action or suppress the warning. The `if-no-files-found` option allows you to customize the behavior of the action if no files are found:
+
+```yaml
+- uses: actions/upload-artifact@v3
+  with:
+    name: my-artifact
+    path: path/to/artifact/
+    if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn`
+```
+
+### Conditional Artifact Upload
+
+To upload artifacts only when the previous step of a job failed, use [`if: failure()`](https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions#job-status-check-functions):
+
+```yaml
+- uses: actions/upload-artifact@v3
+  if: failure()
+  with:
+    filename: my-artifact
+    path: path/to/artifact/
+```
+
+### Uploading without an artifact name
+
+You can upload an artifact without specifying a name
+
+```yaml
+- uses: actions/upload-artifact@v3
+  with:
+    path: path/to/artifact/world.txt
+```
+
+If not provided, `artifact` will be used as the default name which will manifest itself in the UI after upload.
+
+### Uploading to the same artifact
+
+With the following example, the available artifact (named `artifact` by default if no name is provided) would contain both `world.txt` (`hello`) and `extra-file.txt` (`howdy`):
+
+```yaml
+- run: echo hi > world.txt
+- uses: actions/upload-artifact@v3
+  with:
+    path: world.txt
+
+- run: echo howdy > extra-file.txt
+- uses: actions/upload-artifact@v3
+  with:
+    path: extra-file.txt
+
+- run: echo hello > world.txt
+- uses: actions/upload-artifact@v3
+  with:
+    path: world.txt
+```
+
+Each artifact behaves as a file share. Uploading to the same artifact multiple times in the same workflow can overwrite and append already uploaded files:
+
+```yaml
+    strategy:
+      matrix:
+          node-version: [8.x, 10.x, 12.x, 13.x]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Build
-        run: echo ${{ github.sha }} > Release.txt
-      - name: Test
-        run: cat Release.txt
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            Release.txt
-            LICENSE
+        - name: Create a file
+          run: echo ${{ matrix.node-version }} > my_file.txt
+        - name: Accidentally upload to the same artifact via multiple jobs
+          uses: actions/upload-artifact@v3
+          with:
+              name: my-artifact
+              path: ${{ github.workspace }}
 ```
 
-> **⚠️ Note:** Notice the `|` in the yaml syntax above ☝️. That let's you effectively declare a multi-line yaml string. You can learn more about multi-line yaml syntax [here](https://yaml-multiline.info)
+> **_Warning:_** Be careful when uploading to the same artifact via multiple jobs as artifacts may become corrupted. When uploading a file with an identical name and path in multiple jobs, uploads may fail with 503 errors due to conflicting uploads happening at the same time. Ensure uploads to identical locations to not interfere with each other.
 
-> **⚠️ Note for Windows:** Paths must use `/` as a separator, not `\`, as `\` is used to escape characters with special meaning in the pattern; for example, instead of specifying `D:\Foo.txt`, you must specify `D:/Foo.txt`. If you're using PowerShell, you can do this with `$Path = $Path -replace '\\','/'`
-
-### 📝 External release notes
-
-Many systems exist that can help generate release notes for you. This action supports
-loading release notes from a path in your repository's build to allow for the flexibility
-of using any changelog generator for your releases, including a human 👩‍💻
+In the above example, four jobs will upload four different files to the same artifact but there will only be one file available when `my-artifact` is downloaded. Each job overwrites what was previously uploaded. To ensure that jobs don't overwrite existing artifacts, use a different name per job:
 
 ```yaml
-name: Main
+          uses: actions/upload-artifact@v3
+          with:
+              filename: my-artifact ${{ matrix.node-version }}
+              path: ${{ github.workspace }}
+```
 
-on: push
+### Environment Variables and Tilde Expansion
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+You can use `~` in the path input as a substitute for `$HOME`. Basic tilde expansion is supported:
+
+```yaml
+  - run: |
+      mkdir -p ~/new/artifact
+      echo hello > ~/new/artifact/world.txt
+  - uses: actions/upload-artifact@v3
+    with:
+      name: Artifacts-V3
+      path: ~/new/**/*
+```
+
+Environment variables along with context expressions can also be used for input. For documentation see [context and expression syntax](https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions):
+
+```yaml
+    env:
+      name: my-artifact
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Generate Changelog
-        run: echo "# Good things have arrived" > ${{ github.workspace }}-CHANGELOG.txt
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          body_path: ${{ github.workspace }}-CHANGELOG.txt
-          # note you'll typically need to create a personal access token
-          # with permissions to create releases in the other repo
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
-        env:
-          GITHUB_REPOSITORY: my_gh_org/my_gh_repo
+    - run: |
+        mkdir -p ${{ github.workspace }}/artifact
+        echo hello > ${{ github.workspace }}/artifact/world.txt
+    - uses: actions/upload-artifact@v3
+      with:
+        filename: ${{ env.name }}-name
+        path: ${{ github.workspace }}/artifact/**/*
 ```
 
-### 💅 Customizing
-
-#### inputs
-
-The following are optional as `step.with` keys
-
-| Name                       | Type    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `body`                     | String  | Text communicating notable changes in this release                                                                                                                                                                                                                                                                                                                                                                                              |
-| `body_path`                | String  | Path to load text communicating notable changes in this release                                                                                                                                                                                                                                                                                                                                                                                 |
-| `draft`                    | Boolean | Indicator of whether or not this release is a draft                                                                                                                                                                                                                                                                                                                                                                                             |
-| `prerelease`               | Boolean | Indicator of whether or not is a prerelease                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `files`                    | String  | Newline-delimited globs of paths to assets to upload for release                                                                                                                                                                                                                                                                                                                                                                                |
-| `name`                     | String  | Name of the release. defaults to tag name                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `tag_name`                 | String  | Name of a tag. defaults to `github.ref`                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `fail_on_unmatched_files`  | Boolean | Indicator of whether to fail if any of the `files` globs match nothing                                                                                                                                                                                                                                                                                                                                                                          |
-| `repository`               | String  | Name of a target repository in `<owner>/<repo>` format. Defaults to GITHUB_REPOSITORY env variable                                                                                                                                                                                                                                                                                                                                              |
-| `target_commitish`         | String  | Commitish value that determines where the Git tag is created from. Can be any branch or commit SHA. Defaults to repository default branch.                                                                                                                                                                                                                                                                                                      |
-| `token`                    | String  | Secret GitHub Personal Access Token. Defaults to `${{ github.token }}`                                                                                                                                                                                                                                                                                                                                                                          |
-| `discussion_category_name` | String  | If specified, a discussion of the specified category is created and linked to the release. The value must be a category that already exists in the repository. For more information, see ["Managing categories for discussions in your repository."](https://docs.github.com/en/discussions/managing-discussions-for-your-community/managing-categories-for-discussions-in-your-repository)                                                     |
-| `generate_release_notes`   | Boolean | Whether to automatically generate the name and body for this release. If name is specified, the specified name will be used; otherwise, a name will be automatically generated. If body is specified, the body will be pre-pended to the automatically generated notes. See the [GitHub docs for this feature](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes) for more information |
-| `append_body`              | Boolean | Append to existing body instead of overwriting it                                                                                                                                                                                                                                                                                                                                                                                               |
-
-💡 When providing a `body` and `body_path` at the same time, `body_path` will be
-attempted first, then falling back on `body` if the path can not be read from.
-
-💡 When the release info keys (such as `name`, `body`, `draft`, `prerelease`, etc.)
-are not explicitly set and there is already an existing release for the tag, the
-release will retain its original info.
-
-#### outputs
-
-The following outputs can be accessed via `${{ steps.<step-id>.outputs }}` from this action
-
-| Name         | Type   | Description                                                                                                                                                                                                |
-| ------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`        | String | Github.com URL for the release                                                                                                                                                                             |
-| `id`         | String | Release ID                                                                                                                                                                                                 |
-| `upload_url` | String | URL for uploading assets to the release                                                                                                                                                                    |
-| `assets`     | String | JSON array containing information about each uploaded asset, in the format given [here](https://docs.github.com/en/rest/releases/assets#get-a-release-asset) (minus the `uploader` field) |
-
-As an example, you can use `${{ fromJSON(steps.<step-id>.outputs.assets)[0].browser_download_url }}` to get the download URL of the first asset.
-
-#### environment variables
-
-The following `step.env` keys are allowed as a fallback but deprecated in favor of using inputs.
-
-| Name                | Description                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------ |
-| `GITHUB_TOKEN`      | GITHUB_TOKEN as provided by `secrets`                                                      |
-| `GITHUB_REPOSITORY` | Name of a target repository in `<owner>/<repo>` format. defaults to the current repository |
-
-> **⚠️ Note:** This action was previously implemented as a Docker container, limiting its use to GitHub Actions Linux virtual environments only. With recent releases, we now support cross platform usage. You'll need to remove the `docker://` prefix in these versions
-
-### Permissions
-
-This Action requires the following permissions on the GitHub integration token:
+For environment variables created in other steps, make sure to use the `env` expression syntax
 
 ```yaml
-permissions:
-  contents: write
+    steps:
+    - run: | 
+        mkdir testing
+        echo "This is a file to upload" > testing/file.txt
+        echo "artifactPath=testing/file.txt" >> $GITHUB_ENV
+    - uses: actions/upload-artifact@v3
+      with:
+        name: artifact
+        path: ${{ env.artifactPath }} # this will resolve to testing/file.txt at runtime
 ```
 
-When used with `discussion_category_name`, additional permission is needed:
+### Retention Period
+
+Artifacts are retained for 90 days by default. You can specify a shorter retention period using the `retention-days` input:
 
 ```yaml
-permissions:
-  contents: write
-  discussions: write
+  - name: Create a file
+    run: echo "I won't live long" > my_file.txt
+
+  - name: Upload Artifact
+    uses: actions/upload-artifact@v3
+    with:
+      filename: my-artifact
+      path: my_file.txt
+      retention-days: 5
 ```
 
-[GitHub token permissions](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token) can be set for an individual job, workflow, or for Actions as a whole.
+The retention period must be between 1 and 90 inclusive. For more information see [artifact and log retention policies](https://docs.github.com/en/free-pro-team@latest/actions/reference/usage-limits-billing-and-administration#artifact-and-log-retention-policy).
 
-Doug Tangren (softprops) 2019
+## Where does the upload go?
+
+At the bottom of the workflow summary page, there is a dedicated section for artifacts. Here's a screenshot of something you might see:
+
+<img src="https://user-images.githubusercontent.com/16109154/103645952-223c6880-4f59-11eb-8268-8dca6937b5f9.png" width="700" height="300">
+
+There is a trashcan icon that can be used to delete the artifact. This icon will only appear for users who have write permissions to the repository.
+
+The size of the artifact is denoted in bytes. The displayed artifact size denotes the raw uploaded artifact size (the sum of all the individual files uploaded during the workflow run for the artifact), not the compressed size. When you click to download an artifact from the summary page, a compressed zip is created with all the contents of the artifact and the size of the zip that you download may differ significantly from the displayed size. Billing is based on the raw uploaded size and not the size of the zip.
+
+# Limitations
+
+### Zipped Artifact Downloads
+
+During a workflow run, files are uploaded and downloaded individually using the `upload-artifact` and `download-artifact` actions. However, when a workflow run finishes and an artifact is downloaded from either the UI or through the [download api](https://developer.github.com/v3/actions/artifacts/#download-an-artifact), a zip is dynamically created with all the file contents that were uploaded. There is currently no way to download artifacts after a workflow run finishes in a format other than a zip or to download artifact contents individually. One of the consequences of this limitation is that if a zip is uploaded during a workflow run and then downloaded from the UI, there will be a double zip created.
+
+### Permission Loss
+
+:exclamation: File permissions are not maintained during artifact upload :exclamation: For example, if you make a file executable using `chmod` and then upload that file, post-download the file is no longer guaranteed to be set as an executable.
+
+### Case Insensitive Uploads
+
+:exclamation: File uploads are case insensitive :exclamation: If you upload `A.txt` and `a.txt` with the same root path, only a single file will be saved and available during download.
+
+### Maintaining file permissions and case sensitive files
+
+If file permissions and case sensitivity are required, you can `tar` all of your files together before artifact upload. Post download, the `tar` file will maintain file permissions and case sensitivity:
+
+```yaml
+  - name: Tar files
+    run: tar -cvf my_files.tar /path/to/my/directory
+
+  - name: Upload Artifact
+    uses: actions/upload-artifact@v3
+    with:
+      filename: my-artifact
+      path: my_files.tar
+```
+
+### Too many uploads resulting in 429 responses
+
+A very minute subset of users who upload a very very large amount of artifacts in a short period of time may see their uploads throttled or fail because of `Request was blocked due to exceeding usage of resource 'DBCPU' in namespace` or `Unable to copy file to server StatusCode=TooManyRequests`.
+
+To reduce the chance of this happening, you can reduce the number of HTTP calls made during artifact upload by zipping or archiving the contents of your artifact before an upload starts. As an example, imagine an artifact with 1000 files (each 10 Kb in size). Without any modification, there would be around 1000 HTTP calls made to upload the artifact. If you zip or archive the artifact beforehand, the number of HTTP calls can be dropped to single digit territory. Measures like this will significantly speed up your upload and prevent uploads from being throttled or in some cases fail.
+
+## Additional Documentation
+
+See [Storing workflow data as artifacts](https://docs.github.com/en/actions/advanced-guides/storing-workflow-data-as-artifacts) for additional examples and tips.
+
+See extra documentation for the [@actions/artifact](https://github.com/actions/toolkit/blob/main/packages/artifact/docs/additional-information.md) package that is used internally regarding certain behaviors and limitations.
+
+# License
+
+The scripts and documentation in this project are released under the [MIT License](LICENSE).
